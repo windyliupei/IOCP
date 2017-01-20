@@ -141,6 +141,17 @@ namespace NetFrame.Net
                 userToken.SendEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnIOCompleted);
                 _userTokenPool.Push(userToken);  
             }
+
+            Thread prinThread = new Thread(() =>
+            {
+                while (true)
+                {
+                    PrintCurrentConnections();
+                    Thread.Sleep(1000);
+                }
+            });
+            prinThread.IsBackground = true;
+            prinThread.Start();
         }
 
         #endregion
@@ -212,7 +223,8 @@ namespace NetFrame.Net
                 //socket must be cleared since the context object is being reused
                 asyniar.AcceptSocket = null;
             }
-            _maxAcceptedClients.WaitOne();
+            //Move to 'ProcessAccept'
+            //_maxAcceptedClients.WaitOne();
             if (!_serverSock.AcceptAsync(asyniar))
             {
                 ProcessAccept(asyniar);
@@ -245,6 +257,8 @@ namespace NetFrame.Net
                     try
                     {
                         Interlocked.Increment(ref _clientCount);//原子操作加1
+                        //确保和_clientCount逻辑一致
+                        _maxAcceptedClients.WaitOne();
                         AsyncUserToken userToken = _userTokenPool.Pop();
                         userToken.ConnectSocket = sock;
 
@@ -278,32 +292,42 @@ namespace NetFrame.Net
         public void Send(SocketAsyncEventArgs e, byte[] data)
         {
             AsyncUserToken userToken = e.UserToken as AsyncUserToken;
-            userToken.SendBuffer.WriteBuffer(data,0,data.Length);//写入要发送的数据
-            if (userToken.SendEventArgs.SocketError == SocketError.Success)
+            try
             {
-                if (userToken.ConnectSocket.Connected)
+                
+                userToken.SendBuffer.WriteBuffer(data, 0, data.Length);//写入要发送的数据
+                if (userToken.SendEventArgs.SocketError == SocketError.Success)
                 {
-                    //设置发送数据
-                    //userToken.SendEventArgs.SetBuffer(userToken.SendBuffer.Buffer,0,userToken.SendBuffer.DataCount);
-
-                    Array.Copy(data, 0, e.Buffer, 0, data.Length);//设置发送数据
-
-                    if (!userToken.ConnectSocket.SendAsync(userToken.SendEventArgs))//投递发送请求，这个函数有可能同步发送出去，这时返回false，并且不会引发SocketAsyncEventArgs.Completed事件
+                    if (userToken.ConnectSocket.Connected)
                     {
-                        // 同步发送时处理发送完成事件
-                        ProcessSend(userToken.SendEventArgs);
+                        //设置发送数据
+                        //userToken.SendEventArgs.SetBuffer(userToken.SendBuffer.Buffer,0,userToken.SendBuffer.DataCount);
+
+                        Array.Copy(data, 0, e.Buffer, 0, data.Length);//设置发送数据
+
+                        if (!userToken.ConnectSocket.SendAsync(userToken.SendEventArgs))//投递发送请求，这个函数有可能同步发送出去，这时返回false，并且不会引发SocketAsyncEventArgs.Completed事件
+                        {
+                            // 同步发送时处理发送完成事件
+                            ProcessSend(userToken.SendEventArgs);
+                        }
+                        userToken.SendBuffer.Clear();
                     }
-                    userToken.SendBuffer.Clear();
+                    else
+                    {
+                        CloseClientSocket(userToken);
+                    }
                 }
                 else
                 {
                     CloseClientSocket(userToken);
                 }
             }
-            else
+            catch (Exception exception)
             {
                 CloseClientSocket(userToken);
+                Console.WriteLine(exception);
             }
+            
         }
 
         /// <summary>
@@ -375,33 +399,41 @@ namespace NetFrame.Net
         /// <param name="e">与接收完成操作相关联的SocketAsyncEventArg对象</param>
         private void ProcessReceive(SocketAsyncEventArgs e)
         {
-            AsyncUserToken userToken = e.UserToken as AsyncUserToken;
-            if (userToken.ReceiveEventArgs.BytesTransferred > 0 && userToken.ReceiveEventArgs.SocketError == SocketError.Success)
+            try
             {
-                Socket sock = userToken.ConnectSocket;
-                //判断所有需接收的数据是否已经完成
-                if (sock.Available == 0)
+                AsyncUserToken userToken = e.UserToken as AsyncUserToken;
+                if (userToken.ReceiveEventArgs.BytesTransferred > 0 && userToken.ReceiveEventArgs.SocketError == SocketError.Success)
                 {
-                    //把收到的数据写入到缓存区里面
-                    userToken.ReceiveBuffer.WriteBuffer(e.Buffer, e.Offset, e.BytesTransferred);
-                    //TODO 处理数据
+                    Socket sock = userToken.ConnectSocket;
+                    //判断所有需接收的数据是否已经完成
+                    if (sock.Available == 0)
+                    {
+                        //把收到的数据写入到缓存区里面
+                        userToken.ReceiveBuffer.WriteBuffer(e.Buffer, e.Offset, e.BytesTransferred);
+                        //TODO 处理数据
 
-                    string info = Encoding.Default.GetString(e.Buffer,e.Offset,e.BytesTransferred);
-                    //Log4Debug(String.Format("收到 {0} 数据为 {1}", sock.RemoteEndPoint.ToString(), info));
+                        string info = Encoding.Default.GetString(e.Buffer, e.Offset, e.BytesTransferred);
+                        //Log4Debug(String.Format("收到 {0} 数据为 {1}", sock.RemoteEndPoint.ToString(), info));
 
-                    Send(userToken.SendEventArgs,e.Buffer);
+                        Send(userToken.SendEventArgs, e.Buffer);
+                    }
+
+                    if (!sock.ReceiveAsync(userToken.ReceiveEventArgs))//为接收下一段数据，投递接收请求，这个函数有可能同步完成，这时返回false，并且不会引发SocketAsyncEventArgs.Completed事件
+                    {
+                        //同步接收时处理接收完成事件
+                        ProcessReceive(userToken.ReceiveEventArgs);
+                    }
                 }
-
-                if (!sock.ReceiveAsync(userToken.ReceiveEventArgs))//为接收下一段数据，投递接收请求，这个函数有可能同步完成，这时返回false，并且不会引发SocketAsyncEventArgs.Completed事件
+                else
                 {
-                    //同步接收时处理接收完成事件
-                    ProcessReceive(userToken.ReceiveEventArgs);
+                    CloseClientSocket(userToken);
                 }
             }
-            else
+            catch (Exception exception)
             {
-                CloseClientSocket(userToken);
+                Console.WriteLine(exception);
             }
+            
         }
 
         #endregion
@@ -430,7 +462,7 @@ namespace NetFrame.Net
                     //case SocketAsyncOperation.Send:
                     //    ProcessSend(e);
                     //    break;
-                   
+
                 }
             }
         }
@@ -446,7 +478,7 @@ namespace NetFrame.Net
             if (userToken.ConnectSocket == null)
                 return;
 
-            Log4Debug(String.Format("客户 {0} 断开连接!", userToken.ConnectSocket.RemoteEndPoint.ToString()));
+            Log4Debug(String.Format("客户 {0} 断开连接!, Totoal :{1}", userToken.ConnectSocket.RemoteEndPoint.ToString(),_clientCount));
             try
             {
                 userToken.ConnectSocket.Shutdown(SocketShutdown.Send);
@@ -457,7 +489,7 @@ namespace NetFrame.Net
             }
             finally
             {
-                userToken.ConnectSocket.Close();
+                userToken.ConnectSocket.Shutdown(SocketShutdown.Both);
             }
             Interlocked.Decrement(ref _clientCount);
             userToken.ConnectSocket = null; //释放引用，并清理缓存，包括释放协议对象等资源
@@ -513,6 +545,15 @@ namespace NetFrame.Net
         {
             Console.WriteLine("notice:" + msg);
         }
-        
+
+        private void PrintCurrentConnections()
+        {
+            int currentPools = _userTokenPool.Count;
+            int currentConns = _clientCount;
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("Current Pool:{0},Connections:{1}",currentPools,currentConns);
+            Console.ResetColor();
+        }
     }
 }

@@ -43,6 +43,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cowboy.Sockets.TestTcpSocke
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cowboy.Sockets.TestTcpSocketServer", "Cowboy\Tests\Cowboy.Sockets.TestTcpSocketServer\Cowboy.Sockets.TestTcpSocketServer.csproj", "{B07B5EB4-1892-465E-BC17-150EDC281EB5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IOCPV4", "IOCPV4\IOCPV4.csproj", "{FC2C7721-55DF-4578-B3FE-3F64A0E0830B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -109,6 +111,10 @@ Global
 		{B07B5EB4-1892-465E-BC17-150EDC281EB5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B07B5EB4-1892-465E-BC17-150EDC281EB5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B07B5EB4-1892-465E-BC17-150EDC281EB5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FC2C7721-55DF-4578-B3FE-3F64A0E0830B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC2C7721-55DF-4578-B3FE-3F64A0E0830B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC2C7721-55DF-4578-B3FE-3F64A0E0830B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC2C7721-55DF-4578-B3FE-3F64A0E0830B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
