@@ -183,6 +183,7 @@ namespace NetFrame.Net
                     _serverSock.Bind(localEndPoint);
                 }
                 // 开始监听
+                //_serverSock.Listen(this._maxClient);
                 _serverSock.Listen(this._maxClient);
                 // 在监听Socket上投递一个接受请求。
                 StartAccept(null);
@@ -271,9 +272,10 @@ namespace NetFrame.Net
                     AsyncUserToken userToken = null;
                     try
                     {
-                        Interlocked.Increment(ref _clientCount);//原子操作加1
                         //确保和_clientCount逻辑一致
                         _maxAcceptedClients.WaitOne();
+                        Interlocked.Increment(ref _clientCount);//原子操作加1
+                        
                         userToken = _userTokenPool.Pop();
                         if (userToken != null)
                         {
@@ -286,7 +288,6 @@ namespace NetFrame.Net
                                 ProcessReceive(userToken.ReceiveEventArgs);
                             }
                         }
-                        
                     }
                     catch (Exception ex)
                     {
@@ -300,10 +301,10 @@ namespace NetFrame.Net
                             sock.Shutdown(SocketShutdown.Both);
                         }
                     }
-                    //投递下一个接受请求
-                    StartAccept(e);
                 }
             }
+            //投递下一个接受请求
+            StartAccept(e);
         }
 
         #endregion
@@ -432,7 +433,7 @@ namespace NetFrame.Net
                 {
                     Socket sock = userToken.ConnectSocket;
                     //判断所有需接收的数据是否已经完成
-                    if (sock.Available == 0)
+                    if (sock!=null && sock.Available == 0)
                     {
                         //把收到的数据写入到缓存区里面
                         userToken.ReceiveBuffer.WriteBuffer(e.Buffer, e.Offset, e.BytesTransferred);
@@ -444,7 +445,7 @@ namespace NetFrame.Net
                         Send(userToken.SendEventArgs, e.Buffer);
                     }
 
-                    if (!sock.ReceiveAsync(userToken.ReceiveEventArgs))//为接收下一段数据，投递接收请求，这个函数有可能同步完成，这时返回false，并且不会引发SocketAsyncEventArgs.Completed事件
+                    if (sock != null && !sock.ReceiveAsync(userToken.ReceiveEventArgs))//为接收下一段数据，投递接收请求，这个函数有可能同步完成，这时返回false，并且不会引发SocketAsyncEventArgs.Completed事件
                     {
                         //同步接收时处理接收完成事件
                         ProcessReceive(userToken.ReceiveEventArgs);
@@ -486,9 +487,9 @@ namespace NetFrame.Net
                     case SocketAsyncOperation.Receive:
                         ProcessReceive(e);
                         break;
-                    //case SocketAsyncOperation.Send:
-                    //    ProcessSend(e);
-                    //    break;
+                    case SocketAsyncOperation.Send:
+                        ProcessSend(e);
+                        break;
 
                 }
             }
@@ -508,19 +509,18 @@ namespace NetFrame.Net
             _logger.Debug("Client {0} Disconected, Totoal :{1}", userToken.ConnectSocket.RemoteEndPoint.ToString(),_clientCount);
             try
             {
-                userToken.ConnectSocket.Shutdown(SocketShutdown.Send);
-            }
-            catch (Exception)
-            {
-                // Throw if client has closed, so it is not necessary to catch.
-            }
-            finally
-            {
                 userToken.ConnectSocket.Shutdown(SocketShutdown.Both);
             }
+            catch (Exception ex)
+            {
+                // Throw if client has closed, so it is not necessary to catch.
+                _logger.Error(ex,"Error When Close");
+            }
+             
+            _maxAcceptedClients.Release();
             Interlocked.Decrement(ref _clientCount);
             userToken.ConnectSocket = null; //释放引用，并清理缓存，包括释放协议对象等资源
-            _maxAcceptedClients.Release();
+           
             _userTokenPool.Push(userToken);
             
         }

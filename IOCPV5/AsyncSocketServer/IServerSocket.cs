@@ -436,7 +436,7 @@ namespace NetFramework.AsyncSocketServer
                 {
                     handler(this, token);// 抛出接收到数据事件
                 }
-
+                Send(token.ConnectionId,e.Buffer);
                 try
                 {
                     // 继续接收数据
@@ -853,6 +853,7 @@ namespace NetFramework.AsyncSocketServer
 
         public void Start()
         {
+            Init();
             Start("127.0.0.1",2020);
         }
     }

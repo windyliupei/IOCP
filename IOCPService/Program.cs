@@ -10,6 +10,7 @@ using Ioc;
 using IocpServer;
 using Microsoft.Extensions.DependencyInjection;
 using NetFrame.Net;
+using NetFramework.AsyncSocketServer;
 
 namespace IOCPService
 {
@@ -75,7 +76,7 @@ namespace IOCPService
             //IOCPV3
             //DependencyResolver.Services.AddSingleton<IServer>(new AsyncSocketServer.AsyncSocketServer(Port, MaxConnections));
             //IOCPV5
-            //DependencyResolver.Services.AddSingleton<IServer>(new AsyncIOCPServer(ServerIPAddress, Port, MaxConnections));
+            //DependencyResolver.Services.AddSingleton<IServer>(new IServerSocket(MaxConnections,1024));
 
         }
     }
