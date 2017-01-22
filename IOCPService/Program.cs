@@ -18,9 +18,10 @@ namespace IOCPService
         private static int Port;
         private static int MaxConnections;
         private static IPAddress ServerIPAddress;
-
+        private static NLog.ILogger _logger = NLog.LogManager.GetCurrentClassLogger();
         static void Main(string[] args)
         {
+            _logger.Debug("Start...");
             //AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
             //处理未捕获的异常  

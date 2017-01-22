@@ -47,6 +47,8 @@ namespace NetFrame.Net
 
         private bool disposed = false;
 
+        private NLog.ILogger _logger = NLog.LogManager.GetCurrentClassLogger();
+
         #endregion
 
         #region Properties
@@ -225,12 +227,24 @@ namespace NetFrame.Net
             }
             //Move to 'ProcessAccept'
             //_maxAcceptedClients.WaitOne();
-            if (!_serverSock.AcceptAsync(asyniar))
+            try
             {
-                ProcessAccept(asyniar);
-                //如果I/O挂起等待异步则触发AcceptAsyn_Asyn_Completed事件
-                //此时I/O操作同步完成，不会触发Asyn_Completed事件，所以指定BeginAccept()方法
+                if (!_serverSock.AcceptAsync(asyniar))
+                {
+                    ProcessAccept(asyniar);
+                    //如果I/O挂起等待异步则触发AcceptAsyn_Asyn_Completed事件
+                    //此时I/O操作同步完成，不会触发Asyn_Completed事件，所以指定BeginAccept()方法
+                }
             }
+            catch (Exception ex)
+            {
+                if (asyniar.ConnectSocket != null)
+                {
+                    asyniar.ConnectSocket.Shutdown(SocketShutdown.Both);
+                }
+                _logger.Error(ex, "IOCP StartAccept Data Error.");
+            }
+            
         }
 
         /// <summary>
@@ -254,25 +268,37 @@ namespace NetFrame.Net
                 Socket sock = e.AcceptSocket;//和客户端关联的socket
                 if (sock.Connected)
                 {
+                    AsyncUserToken userToken = null;
                     try
                     {
                         Interlocked.Increment(ref _clientCount);//原子操作加1
                         //确保和_clientCount逻辑一致
                         _maxAcceptedClients.WaitOne();
-                        AsyncUserToken userToken = _userTokenPool.Pop();
-                        userToken.ConnectSocket = sock;
-
-                        Log4Debug(String.Format("客户 {0} 连入, 共有 {1} 个连接。", sock.RemoteEndPoint.ToString(), _clientCount));
-
-                        if (!sock.ReceiveAsync(userToken.ReceiveEventArgs))//投递接收请求
+                        userToken = _userTokenPool.Pop();
+                        if (userToken != null)
                         {
-                            ProcessReceive(userToken.ReceiveEventArgs);
+                            userToken.ConnectSocket = sock;
+
+                            _logger.Debug("Client {0} connected, Totoal {1} Connections", sock.RemoteEndPoint.ToString(), _clientCount);
+
+                            if (!sock.ReceiveAsync(userToken.ReceiveEventArgs))//投递接收请求
+                            {
+                                ProcessReceive(userToken.ReceiveEventArgs);
+                            }
                         }
+                        
                     }
-                    catch (SocketException ex)
+                    catch (Exception ex)
                     {
-                        Log4Debug(String.Format("接收客户 {0} 数据出错, 异常信息： {1} 。", sock.RemoteEndPoint, ex.ToString()));
-                        //TODO 异常处理
+                        _logger.Error(ex, "IOCP ProcessAccept {0} Data Error.", sock.RemoteEndPoint);
+                        if (userToken!=null)
+                        {
+                            CloseClientSocket(userToken);
+                        }
+                        else
+                        {
+                            sock.Shutdown(SocketShutdown.Both);
+                        }
                     }
                     //投递下一个接受请求
                     StartAccept(e);
@@ -294,17 +320,17 @@ namespace NetFrame.Net
             AsyncUserToken userToken = e.UserToken as AsyncUserToken;
             try
             {
-                
                 userToken.SendBuffer.WriteBuffer(data, 0, data.Length);//写入要发送的数据
+
                 if (userToken.SendEventArgs.SocketError == SocketError.Success)
                 {
                     if (userToken.ConnectSocket.Connected)
                     {
                         //设置发送数据
                         //userToken.SendEventArgs.SetBuffer(userToken.SendBuffer.Buffer,0,userToken.SendBuffer.DataCount);
-
+                        //userToken.SendEventArgs.SetBuffer(0, userToken.SendBuffer.DataCount);
                         Array.Copy(data, 0, e.Buffer, 0, data.Length);//设置发送数据
-
+                        //e.SetBuffer(0, data.Length);//设置实际大小
                         if (!userToken.ConnectSocket.SendAsync(userToken.SendEventArgs))//投递发送请求，这个函数有可能同步发送出去，这时返回false，并且不会引发SocketAsyncEventArgs.Completed事件
                         {
                             // 同步发送时处理发送完成事件
@@ -322,10 +348,9 @@ namespace NetFrame.Net
                     CloseClientSocket(userToken);
                 }
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                CloseClientSocket(userToken);
-                Console.WriteLine(exception);
+                _logger.Error(ex,"IOPC Send Error");
             }
             
         }
@@ -399,9 +424,10 @@ namespace NetFrame.Net
         /// <param name="e">与接收完成操作相关联的SocketAsyncEventArg对象</param>
         private void ProcessReceive(SocketAsyncEventArgs e)
         {
+            AsyncUserToken userToken = null;
             try
             {
-                AsyncUserToken userToken = e.UserToken as AsyncUserToken;
+                userToken = e.UserToken as AsyncUserToken;
                 if (userToken.ReceiveEventArgs.BytesTransferred > 0 && userToken.ReceiveEventArgs.SocketError == SocketError.Success)
                 {
                     Socket sock = userToken.ConnectSocket;
@@ -412,7 +438,7 @@ namespace NetFrame.Net
                         userToken.ReceiveBuffer.WriteBuffer(e.Buffer, e.Offset, e.BytesTransferred);
                         //TODO 处理数据
 
-                        string info = Encoding.Default.GetString(e.Buffer, e.Offset, e.BytesTransferred);
+                        //string info = Encoding.Default.GetString(e.Buffer, e.Offset, e.BytesTransferred);
                         //Log4Debug(String.Format("收到 {0} 数据为 {1}", sock.RemoteEndPoint.ToString(), info));
 
                         Send(userToken.SendEventArgs, e.Buffer);
@@ -429,9 +455,10 @@ namespace NetFrame.Net
                     CloseClientSocket(userToken);
                 }
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                Console.WriteLine(exception);
+                CloseClientSocket(userToken);
+                _logger.Error(ex, "IOPC ProcessReceive Error");
             }
             
         }
@@ -475,10 +502,10 @@ namespace NetFrame.Net
         /// <param name="e">SocketAsyncEventArg associated with the completed send/receive operation.</param>
         private void CloseClientSocket(AsyncUserToken userToken)
         {
-            if (userToken.ConnectSocket == null)
+            if (userToken == null || userToken.ConnectSocket == null)
                 return;
 
-            Log4Debug(String.Format("客户 {0} 断开连接!, Totoal :{1}", userToken.ConnectSocket.RemoteEndPoint.ToString(),_clientCount));
+            _logger.Debug("Client {0} Disconected, Totoal :{1}", userToken.ConnectSocket.RemoteEndPoint.ToString(),_clientCount);
             try
             {
                 userToken.ConnectSocket.Shutdown(SocketShutdown.Send);
@@ -541,10 +568,7 @@ namespace NetFrame.Net
         }
         #endregion
 
-        public void Log4Debug(string msg)
-        {
-            Console.WriteLine("notice:" + msg);
-        }
+        
 
         private void PrintCurrentConnections()
         {

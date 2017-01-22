@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,7 +11,7 @@ namespace NetFrame.Net
     /// </summary>
     public class AsyncUserTokenPool
     {
-        Stack<AsyncUserToken> m_pool;
+        ConcurrentStack<AsyncUserToken> m_pool;
 
         // Initializes the object pool to the specified size
         //
@@ -18,7 +19,7 @@ namespace NetFrame.Net
         // AsyncUserToken objects the pool can hold
         public AsyncUserTokenPool(int capacity)
         {
-            m_pool = new Stack<AsyncUserToken>(capacity);
+            m_pool = new ConcurrentStack<AsyncUserToken>();
         }
 
         // Add a SocketAsyncEventArg instance to the pool
@@ -38,10 +39,12 @@ namespace NetFrame.Net
         // and returns the object removed from the pool
         public AsyncUserToken Pop()
         {
-            lock (m_pool)
+            AsyncUserToken token;
+            if (m_pool.TryPop(out token))
             {
-                return m_pool.Pop();
+                return token;
             }
+            return null;
         }
 
         // The number of AsyncUserToken instances in the pool
