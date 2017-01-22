@@ -74,6 +74,8 @@ namespace IOCPService
             //DependencyResolver.Services.AddSingleton<IServer>(new IOCPServer.IOCPServer(ServerIPAddress, Port, MaxConnections));
             //IOCPV3
             //DependencyResolver.Services.AddSingleton<IServer>(new AsyncSocketServer.AsyncSocketServer(Port, MaxConnections));
+            //IOCPV5
+            //DependencyResolver.Services.AddSingleton<IServer>(new AsyncIOCPServer(ServerIPAddress, Port, MaxConnections));
 
         }
     }

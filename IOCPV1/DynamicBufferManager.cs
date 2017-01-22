@@ -107,49 +107,49 @@ namespace NetFrame.Net
                 Buffer = tmpBuffer; //替换
             }
         }
-        /// <summary>
-        /// 写入数据
-        /// </summary>
-        /// <param name="buffer"></param>
-        public void WriteBuffer(byte[] buffer)
-        {
-            WriteBuffer(buffer, 0, buffer.Length);
-        }
+        ///// <summary>
+        ///// 写入数据
+        ///// </summary>
+        ///// <param name="buffer"></param>
+        //public void WriteBuffer(byte[] buffer)
+        //{
+        //    WriteBuffer(buffer, 0, buffer.Length);
+        //}
 
-        public void WriteShort(short value, bool convert)
-        {
-            if (convert)
-            {
-                value = System.Net.IPAddress.HostToNetworkOrder(value); //NET是小头结构，网络字节是大头结构，需要客户端和服务器约定好
-            }
-            byte[] tmpBuffer = BitConverter.GetBytes(value);
-            WriteBuffer(tmpBuffer);
-        }
+        //public void WriteShort(short value, bool convert)
+        //{
+        //    if (convert)
+        //    {
+        //        value = System.Net.IPAddress.HostToNetworkOrder(value); //NET是小头结构，网络字节是大头结构，需要客户端和服务器约定好
+        //    }
+        //    byte[] tmpBuffer = BitConverter.GetBytes(value);
+        //    WriteBuffer(tmpBuffer);
+        //}
 
-        public void WriteInt(int value, bool convert)
-        {
-            if (convert)
-            {
-                value = System.Net.IPAddress.HostToNetworkOrder(value); //NET是小头结构，网络字节是大头结构，需要客户端和服务器约定好
-            }
-            byte[] tmpBuffer = BitConverter.GetBytes(value);
-            WriteBuffer(tmpBuffer);
-        }
+        //public void WriteInt(int value, bool convert)
+        //{
+        //    if (convert)
+        //    {
+        //        value = System.Net.IPAddress.HostToNetworkOrder(value); //NET是小头结构，网络字节是大头结构，需要客户端和服务器约定好
+        //    }
+        //    byte[] tmpBuffer = BitConverter.GetBytes(value);
+        //    WriteBuffer(tmpBuffer);
+        //}
 
-        public void WriteLong(long value, bool convert)
-        {
-            if (convert)
-            {
-                value = System.Net.IPAddress.HostToNetworkOrder(value); //NET是小头结构，网络字节是大头结构，需要客户端和服务器约定好
-            }
-            byte[] tmpBuffer = BitConverter.GetBytes(value);
-            WriteBuffer(tmpBuffer);
-        }
+        //public void WriteLong(long value, bool convert)
+        //{
+        //    if (convert)
+        //    {
+        //        value = System.Net.IPAddress.HostToNetworkOrder(value); //NET是小头结构，网络字节是大头结构，需要客户端和服务器约定好
+        //    }
+        //    byte[] tmpBuffer = BitConverter.GetBytes(value);
+        //    WriteBuffer(tmpBuffer);
+        //}
 
-        public void WriteString(string value) //文本全部转成UTF8，UTF8兼容性好
-        {
-            byte[] tmpBuffer = Encoding.UTF8.GetBytes(value);
-            WriteBuffer(tmpBuffer);
-        }
+        //public void WriteString(string value) //文本全部转成UTF8，UTF8兼容性好
+        //{
+        //    byte[] tmpBuffer = Encoding.UTF8.GetBytes(value);
+        //    WriteBuffer(tmpBuffer);
+        //}
     }
 }

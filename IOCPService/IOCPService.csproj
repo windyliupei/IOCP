@@ -90,6 +90,10 @@
       <Project>{e08e11a2-dd2f-4673-939e-acfeaf894d6c}</Project>
       <Name>IOCPV3</Name>
     </ProjectReference>
+    <ProjectReference Include="..\IOCPV5\IOCPV5.csproj">
+      <Project>{212a70c1-72af-4228-bf94-ececadca4647}</Project>
+      <Name>IOCPV5</Name>
+    </ProjectReference>
     <ProjectReference Include="..\IServer\IServer.csproj">
       <Project>{15dc7573-d255-447f-baf8-2c7504dccdd2}</Project>
       <Name>IServer</Name>
