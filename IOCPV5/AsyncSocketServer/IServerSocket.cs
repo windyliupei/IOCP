@@ -39,13 +39,11 @@ namespace NetFramework.AsyncSocketServer
         // 写Socket操作的SocketAsyncEventArgs可重用对象池
         private SocketAsyncEventArgsPool m_writePool;
 
-        // 测试用
-        private long m_totalBytesRead;          // 服务器接收到的总字节数计数器
-
-        private long m_totalBytesWrite;         // 服务器发送的字节总数
+        
 
         private long m_numConnectedSockets;      // 连接到服务器的Socket总数
         private Semaphore m_maxNumberAcceptedClients;//最大接受请求数信号量
+        private int _previouseSemaphore;
 
         /// <summary>
         /// 获取已经连接的Socket总数
@@ -54,23 +52,6 @@ namespace NetFramework.AsyncSocketServer
         {
             get { return m_numConnectedSockets; }
         }
-
-        /// <summary>
-        /// 获取接收到的字节总数
-        /// </summary>
-        public long TotalBytesRead
-        {
-            get { return m_totalBytesRead; }
-        }
-
-        /// <summary>
-        /// 获取发送的字节总数
-        /// </summary>
-        public long TotalBytesWrite
-        {
-            get { return m_totalBytesWrite; }
-        }
-
         /// <summary>
         /// 客户端已经连接事件
         /// </summary>
@@ -96,37 +77,15 @@ namespace NetFramework.AsyncSocketServer
         /// </summary>
         public event EventHandler<AsyncUserToken> OnClientDisconnect;     // 客户端断开连接事件
 
-        /// <summary>
-        /// 客户端是否在线
-        /// </summary>
-        /// <param name="connectionId"></param>
-        /// <returns>在线返回true，否则返回false</returns>
-        public bool IsOnline(string connectionId)
-        {
-            lock (((ICollection)this.m_tokens).SyncRoot)
-            {
-                if (!this.m_tokens.ContainsKey(connectionId))
-                {
-                    return false;
-                }
-                else
-                {
-                    return true;
-                }
-            }
-        }
+
 
         /// <summary>
         /// 构造函数
         /// </summary>
         /// <param name="numConnections">服务器允许连接的客户端总数</param>
-        /// <param name="receiveBufferSize">接收缓冲区大小</param>
-        public IServerSocket(int numConnections, int BufferSize)//构造函数
+        /// <param name="bufferSize">接收缓冲区大小(默认1024)</param>
+        public IServerSocket(int numConnections, int bufferSize)//构造函数
         {
-            // 重置接收和发送字节总数
-            m_totalBytesRead = 0;
-            m_totalBytesWrite = 0;
-
             // 已经连接的客户端总数
             m_numConnectedSockets = 0;
 
@@ -134,12 +93,12 @@ namespace NetFramework.AsyncSocketServer
             m_numConnections = numConnections;
 
             // 接收缓冲区大小
-            m_BufferSize = BufferSize;
+            m_BufferSize = bufferSize;
 
             // 为最大数目Socket 同时能拥有高性能的读、写通讯表现而分配缓冲区空间
 
-            m_bufferManager = new BufferManager(BufferSize * numConnections * opsToPreAlloc,
-                BufferSize);
+            m_bufferManager = new BufferManager(bufferSize * numConnections * opsToPreAlloc,
+                bufferSize);
 
             // 读写池
             m_readPool = new SocketAsyncEventArgsPool(numConnections);
@@ -211,6 +170,17 @@ namespace NetFramework.AsyncSocketServer
                 // 添加一个 SocketAsyncEventArg 到池中
                 m_writePool.Push(readWriteEventArg);
             }
+
+            Thread prinThread = new Thread(() =>
+            {
+                while (true)
+                {
+                    PrintCurrentConnections();
+                    Thread.Sleep(1000);
+                }
+            });
+            prinThread.IsBackground = true;
+            prinThread.Start();
         }
 
         /// <summary>
@@ -422,8 +392,8 @@ namespace NetFramework.AsyncSocketServer
             if (e.BytesTransferred > 0 && e.SocketError == SocketError.Success)
             {
                 // 增加接收到的字节总数
-                Interlocked.Add(ref m_totalBytesRead, e.BytesTransferred);
-                Debug.WriteLine(string.Format("服务器读取字节总数:{0}", m_totalBytesRead.ToString()));
+                //Interlocked.Add(ref m_totalBytesRead, e.BytesTransferred);
+                //Debug.WriteLine(string.Format("服务器读取字节总数:{0}", m_totalBytesRead.ToString()));
 
                 //byte[] destinationArray = new byte[e.BytesTransferred];// 目的字节数组
                 //Array.Copy(e.Buffer, 0, destinationArray, 0, e.BytesTransferred);
@@ -632,8 +602,7 @@ namespace NetFramework.AsyncSocketServer
             //SocketAsyncEventArgs token;
             AsyncUserToken token = (AsyncUserToken)e.UserToken;
 
-            // 增加发送计数器
-            Interlocked.Add(ref m_totalBytesWrite, e.BytesTransferred);
+             
 
             if (e.Count > m_BufferSize)
             {
@@ -788,7 +757,7 @@ namespace NetFramework.AsyncSocketServer
             {
                 // 减少连接到服务器客户端总数的计数器的值
                 Interlocked.Decrement(ref m_numConnectedSockets);
-                m_maxNumberAcceptedClients.Release();
+                _previouseSemaphore = m_maxNumberAcceptedClients.Release();
 
                 Debug.WriteLine(string.Format("一个客户端被从服务器断开. 有 {0} 个客户端连接到服务器", m_numConnectedSockets.ToString()));
                 lock (m_readPool)
@@ -855,6 +824,14 @@ namespace NetFramework.AsyncSocketServer
         {
             Init();
             Start("127.0.0.1",2020);
+        }
+
+        public void PrintCurrentConnections()
+        {
+            long currentConns = m_numConnectedSockets;
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Connections:{0},Semaphore:{1}", currentConns,_previouseSemaphore);
+            Console.ResetColor();
         }
     }
 }

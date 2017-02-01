@@ -21,6 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -93,6 +94,10 @@
     <ProjectReference Include="..\IOCPV5\IOCPV5.csproj">
       <Project>{212a70c1-72af-4228-bf94-ececadca4647}</Project>
       <Name>IOCPV5</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\IOCP\IOCP.csproj">
+      <Project>{42c8bc5a-bc45-40bb-b9f3-ac5392bca3db}</Project>
+      <Name>IOCP</Name>
     </ProjectReference>
     <ProjectReference Include="..\IServer\IServer.csproj">
       <Project>{15dc7573-d255-447f-baf8-2c7504dccdd2}</Project>

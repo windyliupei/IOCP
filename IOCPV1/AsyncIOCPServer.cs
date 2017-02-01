@@ -328,16 +328,17 @@ namespace NetFrame.Net
                     if (userToken.ConnectSocket.Connected)
                     {
                         //设置发送数据
-                        //userToken.SendEventArgs.SetBuffer(userToken.SendBuffer.Buffer,0,userToken.SendBuffer.DataCount);
-                        //userToken.SendEventArgs.SetBuffer(0, userToken.SendBuffer.DataCount);
-                        Array.Copy(data, 0, e.Buffer, 0, data.Length);//设置发送数据
-                        //e.SetBuffer(0, data.Length);//设置实际大小
+                        
+                        //Array.Copy(data, 0, e.Buffer, 0, data.Length);
+                        Buffer.BlockCopy(data, 0, e.Buffer, 0, data.Length);
                         if (!userToken.ConnectSocket.SendAsync(userToken.SendEventArgs))//投递发送请求，这个函数有可能同步发送出去，这时返回false，并且不会引发SocketAsyncEventArgs.Completed事件
                         {
                             // 同步发送时处理发送完成事件
                             ProcessSend(userToken.SendEventArgs);
                         }
                         userToken.SendBuffer.Clear();
+
+                        
                     }
                     else
                     {
@@ -351,6 +352,7 @@ namespace NetFrame.Net
             }
             catch (Exception ex)
             {
+                CloseClientSocket(userToken);
                 _logger.Error(ex,"IOPC Send Error");
             }
             
@@ -570,7 +572,7 @@ namespace NetFrame.Net
 
         
 
-        private void PrintCurrentConnections()
+        public void PrintCurrentConnections()
         {
             int currentPools = _userTokenPool.Count;
             int currentConns = _clientCount;

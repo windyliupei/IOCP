@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Ioc;
 using IocpServer;
+using IOCP;
 using Microsoft.Extensions.DependencyInjection;
 using NetFrame.Net;
 using NetFramework.AsyncSocketServer;
@@ -70,13 +71,15 @@ namespace IOCPService
         private static void LoadModels()
         {
             //IOCPV1
-            DependencyResolver.Services.AddSingleton<IServer>(new AsyncIOCPServer(ServerIPAddress, Port, MaxConnections));
+            //DependencyResolver.Services.AddSingleton<IServer>(new AsyncIOCPServer(ServerIPAddress, Port, MaxConnections));
             //IOCPV2
             //DependencyResolver.Services.AddSingleton<IServer>(new IOCPServer.IOCPServer(ServerIPAddress, Port, MaxConnections));
             //IOCPV3
             //DependencyResolver.Services.AddSingleton<IServer>(new AsyncSocketServer.AsyncSocketServer(Port, MaxConnections));
             //IOCPV5
             //DependencyResolver.Services.AddSingleton<IServer>(new IServerSocket(MaxConnections,1024));
+            //IOCP
+            DependencyResolver.Services.AddSingleton<IServer>(new Server(ServerIPAddress.ToString(), Port, MaxConnections, 1024));
 
         }
     }

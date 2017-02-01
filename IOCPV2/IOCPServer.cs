@@ -613,6 +613,12 @@ namespace IOCPServer
                 disposed = true;
             }
         }
+
+        public void PrintCurrentConnections()
+        {
+            Console.WriteLine("throw new NotImplementedException");
+        }
+
         #endregion
     }
 }

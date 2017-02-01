@@ -288,6 +288,9 @@ namespace AsyncSocketServer
             m_asyncSocketUserTokenList.Remove(userToken);
         }
 
-        
+        public void PrintCurrentConnections()
+        {
+            Console.WriteLine("throw new NotImplementedException");
+        }
     }
 }
