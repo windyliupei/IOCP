@@ -19,13 +19,14 @@ namespace IOCPVCustom
         Socket listenSocket;            // the socket used to listen for incoming connection requests
                                         // pool of reusable SocketAsyncEventArgs objects for write, read and accept socket operations
         SocketAsyncEventArgsPool m_readWritePool;
+        AsyncUserTokenPool m_TokenPool;
         int m_totalBytesRead;           // counter of the total # bytes received by the server
         int m_numConnectedSockets;      // the total number of clients connected to the server 
         Semaphore m_maxNumberAcceptedClients;
         private int _previouseSemaphore;
         private string m_ipAddress;
         private int m_port;
-
+        private NLog.ILogger _logger = NLog.LogManager.GetCurrentClassLogger();
         // Create an uninitialized server instance.  
         // To start the server listening for connection requests
         // call the Init method followed by Start method 
@@ -46,6 +47,7 @@ namespace IOCPVCustom
                 receiveBufferSize);
 
             m_readWritePool = new SocketAsyncEventArgsPool(numConnections);
+            m_TokenPool = new AsyncUserTokenPool(numConnections);
             m_maxNumberAcceptedClients = new Semaphore(numConnections, numConnections);
         }
 
@@ -61,20 +63,20 @@ namespace IOCPVCustom
             m_bufferManager.InitBuffer();
 
             // preallocate pool of SocketAsyncEventArgs objects
-            SocketAsyncEventArgs readWriteEventArg;
+            AsyncUserToken asyncUserToken;
 
             for (int i = 0; i < m_numConnections; i++)
             {
-                //Pre-allocate a set of reusable SocketAsyncEventArgs
-                readWriteEventArg = new SocketAsyncEventArgs();
-                readWriteEventArg.Completed += new EventHandler<SocketAsyncEventArgs>(IO_Completed);
-                readWriteEventArg.UserToken = new AsyncUserToken();
+                //Pre-allocate a set of reusable asyncUserToken
+                asyncUserToken = new AsyncUserToken {ReceiveSaea = new TCCSocketAsyncEventArgs(),SendSaea = new TCCSocketAsyncEventArgs() };
+                asyncUserToken.ReceiveSaea.Completed += new EventHandler<SocketAsyncEventArgs>(IO_Completed);
+                asyncUserToken.SendSaea.Completed += new EventHandler<SocketAsyncEventArgs>(IO_Completed);
 
-                // assign a byte buffer from the buffer pool to the SocketAsyncEventArg object
-                m_bufferManager.SetBuffer(readWriteEventArg);
+                //只给接收的SocketAsyncEventArgs设置缓冲区
+                m_bufferManager.SetBuffer(asyncUserToken.ReceiveSaea);
 
-                // add SocketAsyncEventArg to the pool
-                m_readWritePool.Push(readWriteEventArg);
+                // add asyncUserToken to the pool
+                m_TokenPool.Push(asyncUserToken);
             }
 
             Thread prinThread = new Thread(() =>
@@ -147,19 +149,22 @@ namespace IOCPVCustom
         private void ProcessAccept(SocketAsyncEventArgs e)
         {
             Interlocked.Increment(ref m_numConnectedSockets);
-            //Console.WriteLine("Client connection accepted. There are {0} clients connected to the server",
-            //    m_numConnectedSockets);
 
             // Get the socket for the accepted client connection and put it into the 
             //ReadEventArg object user token
-            SocketAsyncEventArgs readEventArgs = m_readWritePool.Pop();
-            ((AsyncUserToken)readEventArgs.UserToken).Socket = e.AcceptSocket;
+            //string uid = ((e.AcceptSocket.RemoteEndPoint as IPEndPoint).Address.ToString());   //根据IP获取用户的UID
+            string uid = e.AcceptSocket.RemoteEndPoint.ToString();   //根据IP获取用户的UID
+            AsyncUserToken token = m_TokenPool.Pop(uid);
+            token.Socket = e.AcceptSocket;
+            token.ReceiveSaea.UserToken = token;
+            token.SendSaea.UserToken = token;
+            token.ConnecteDateTime = DateTime.Now;
 
             // As soon as the client is connected, post a receive to the connection
-            bool willRaiseEvent = e.AcceptSocket.ReceiveAsync(readEventArgs);
+            bool willRaiseEvent = e.AcceptSocket.ReceiveAsync(token.ReceiveSaea);
             if (!willRaiseEvent)
             {
-                ProcessReceive(readEventArgs);
+                ProcessReceive(token.ReceiveSaea);
             }
 
             // Accept the next connection request
@@ -196,17 +201,54 @@ namespace IOCPVCustom
             AsyncUserToken token = (AsyncUserToken)e.UserToken;
             if (e.BytesTransferred > 0 && e.SocketError == SocketError.Success)
             {
-                //echo the data received back to the client
-                e.SetBuffer(e.Offset, e.BytesTransferred);
-                bool willRaiseEvent = token.Socket.SendAsync(e);
-                if (!willRaiseEvent)
-                {
-                    ProcessSend(e);
-                }
+                ProcessReceivedContent(e);  
             }
             else
             {
-                CloseClientSocket(e);
+                CloseClientSocket(token);
+            }
+        }
+
+        private void ProcessReceivedContent(SocketAsyncEventArgs e)
+        {
+            //Get Received Bytes
+            int bytesToProcess = e.BytesTransferred;
+            byte[] receivedBytes = new byte[bytesToProcess];
+            Buffer.BlockCopy(e.Buffer, e.Offset, receivedBytes, 0, bytesToProcess);
+
+            Send((e.UserToken as AsyncUserToken), receivedBytes);
+
+        }
+        public void Send(AsyncUserToken token, byte[] data)
+        {
+            try
+            {
+                if (token.ReceiveSaea.BytesTransferred > 0 && token.ReceiveSaea.SocketError == SocketError.Success)
+                {
+                    if (token != null && token.Socket.Connected)
+                    {
+                        token.SendSaea.SetBuffer(data,0, data.Length);
+                        //异步发送,如果 willRaiseEvent 为false则异步操作失败，进行同步。
+                        bool willRaiseEvent = token.Socket.SendAsync(token.SendSaea);
+                        if (!willRaiseEvent)
+                        {
+                            ProcessSend(token.SendSaea);
+                        }
+                    }
+                    else
+                    {
+                        CloseClientSocket(token);
+                    }
+                }
+                else
+                {
+                    CloseClientSocket(token);
+                }
+            }
+            catch (Exception ex)
+            {
+                CloseClientSocket(token);
+                _logger.Error(ex);
             }
         }
 
@@ -222,7 +264,7 @@ namespace IOCPVCustom
                 // done echoing data back to the client
                 AsyncUserToken token = (AsyncUserToken)e.UserToken;
                 // read the next block of data send from the client
-                bool willRaiseEvent = token.Socket.ReceiveAsync(e);
+                bool willRaiseEvent = token.Socket.ReceiveAsync(token.ReceiveSaea);
                 if (!willRaiseEvent)
                 {
                     ProcessReceive(e);
@@ -230,14 +272,12 @@ namespace IOCPVCustom
             }
             else
             {
-                CloseClientSocket(e);
+                CloseClientSocket(e.UserToken as AsyncUserToken);
             }
         }
 
-        private void CloseClientSocket(SocketAsyncEventArgs e)
+        private void CloseClientSocket(AsyncUserToken token)
         {
-            AsyncUserToken token = e.UserToken as AsyncUserToken;
-
             // close the socket associated with the client
             try
             {
@@ -253,7 +293,7 @@ namespace IOCPVCustom
             //Console.WriteLine("A client has been disconnected from the server. There are {0} clients connected to the server", m_numConnectedSockets);
 
             // Free the SocketAsyncEventArg so they can be reused by another client
-            m_readWritePool.Push(e);
+            m_TokenPool.Push(token);
         }
 
         public void Start()
