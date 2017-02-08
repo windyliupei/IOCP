@@ -12,43 +12,32 @@ namespace IOCPVCustom
 {
     public class ServerCustom : IServer
     {
-        private int m_numConnections;   // the maximum number of connections the sample is designed to handle simultaneously 
-        //private int m_receiveBufferSize;// buffer size to use for each socket I/O operation 
+        private int m_maxConnections;   // the maximum number of connections the sample is designed to handle simultaneously 
         BufferManager m_bufferManager;  // represents a large reusable set of buffers for all socket operations
-        const int opsToPreAlloc = 2;    // read, write (don't alloc buffer space for accepts)
         Socket listenSocket;            // the socket used to listen for incoming connection requests
-                                        // pool of reusable SocketAsyncEventArgs objects for write, read and accept socket operations
-        SocketAsyncEventArgsPool m_readWritePool;
-        AsyncUserTokenPool m_TokenPool;
-        int m_totalBytesRead;           // counter of the total # bytes received by the server
-        int m_numConnectedSockets;      // the total number of clients connected to the server 
+                                        
+        AsyncUserTokenPool m_userTokenPool;// pool of reusable AsyncUserToken objects for write, read and accept socket operations
+        int m_totalConnectedSockets;      // the total number of clients connected to the server 
         Semaphore m_maxNumberAcceptedClients;
         private int _previouseSemaphore;
         private string m_ipAddress;
         private int m_port;
         private NLog.ILogger _logger = NLog.LogManager.GetCurrentClassLogger();
-        // Create an uninitialized server instance.  
-        // To start the server listening for connection requests
-        // call the Init method followed by Start method 
-        //
-        // <param name="numConnections">the maximum number of connections the sample is designed to handle simultaneously</param>
-        // <param name="receiveBufferSize">buffer size to use for each socket I/O operation</param>
-        public ServerCustom(string ipAddress, int port, int numConnections, int receiveBufferSize)
+        
+        public ServerCustom(string ipAddress, int port, int maxConnections, int receiveBufferSize)
         {
-            m_totalBytesRead = 0;
-            m_numConnectedSockets = 0;
-            m_numConnections = numConnections;
+            m_totalConnectedSockets = 0;
+            m_maxConnections = maxConnections;
             m_ipAddress = ipAddress;
             m_port = port;
-            //m_receiveBufferSize = receiveBufferSize;
+             
             // allocate buffers such that the maximum number of sockets can have one outstanding read and 
             //write posted to the socket simultaneously  
-            m_bufferManager = new BufferManager(receiveBufferSize * numConnections * opsToPreAlloc,
+            m_bufferManager = new BufferManager(receiveBufferSize * maxConnections,
                 receiveBufferSize);
 
-            m_readWritePool = new SocketAsyncEventArgsPool(numConnections);
-            m_TokenPool = new AsyncUserTokenPool(numConnections);
-            m_maxNumberAcceptedClients = new Semaphore(numConnections, numConnections);
+            m_userTokenPool = new AsyncUserTokenPool(maxConnections);
+            m_maxNumberAcceptedClients = new Semaphore(maxConnections, maxConnections);
         }
 
         // Initializes the server by preallocating reusable buffers and 
@@ -65,7 +54,7 @@ namespace IOCPVCustom
             // preallocate pool of SocketAsyncEventArgs objects
             AsyncUserToken asyncUserToken;
 
-            for (int i = 0; i < m_numConnections; i++)
+            for (int i = 0; i < m_maxConnections; i++)
             {
                 //Pre-allocate a set of reusable asyncUserToken
                 asyncUserToken = new AsyncUserToken {ReceiveSaea = new TCCSocketAsyncEventArgs(),SendSaea = new TCCSocketAsyncEventArgs() };
@@ -76,9 +65,10 @@ namespace IOCPVCustom
                 m_bufferManager.SetBuffer(asyncUserToken.ReceiveSaea);
 
                 // add asyncUserToken to the pool
-                m_TokenPool.Push(asyncUserToken);
+                m_userTokenPool.Push(asyncUserToken);
             }
 
+            //Print Serever status
             Thread prinThread = new Thread(() =>
             {
                 while (true)
@@ -86,8 +76,7 @@ namespace IOCPVCustom
                     PrintCurrentConnections();
                     Thread.Sleep(1000);
                 }
-            });
-            prinThread.IsBackground = true;
+            }) {IsBackground = true};
             prinThread.Start();
         }
 
@@ -100,16 +89,15 @@ namespace IOCPVCustom
         {
             // create the socket which listens for incoming connections
             listenSocket = new Socket(localEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            //Refer:https://msdn.microsoft.com/zh-cn/library/1011kecd
+            //      https://msdn.microsoft.com/zh-cn/library/system.net.sockets.socketoptionname
+            listenSocket.SetSocketOption(SocketOptionLevel.Socket,SocketOptionName.Linger, 0);//LINGER 关闭一个连接前等待未发送的数据发送完毕所经过的秒数。如果该值为0，则禁用了该属性
             listenSocket.Bind(localEndPoint);
             // start the server with a listen backlog of 100 connections
             listenSocket.Listen(100);
 
             // post accepts on the listening socket
             StartAccept(null);
-
-            ////Console.WriteLine("{0} connected sockets with one outstanding receive posted to each....press any key", m_outstandingReadCount);
-            //Console.WriteLine("Press any key to terminate the server process....");
-            //Console.ReadKey();
         }
 
 
@@ -148,13 +136,15 @@ namespace IOCPVCustom
 
         private void ProcessAccept(SocketAsyncEventArgs e)
         {
-            Interlocked.Increment(ref m_numConnectedSockets);
+            string uid = e.AcceptSocket.RemoteEndPoint.ToString();   //根据IP获取UID
+            //TODO:
+            if (m_userTokenPool.BusyPoolContains(uid)) //判断现在的用户是否已经连接，避免同一用户开两个连接
+            {
+                _logger.Error("Client:{0}, already connected", uid);
+                return;
+            }
 
-            // Get the socket for the accepted client connection and put it into the 
-            //ReadEventArg object user token
-            //string uid = ((e.AcceptSocket.RemoteEndPoint as IPEndPoint).Address.ToString());   //根据IP获取用户的UID
-            string uid = e.AcceptSocket.RemoteEndPoint.ToString();   //根据IP获取用户的UID
-            AsyncUserToken token = m_TokenPool.Pop(uid);
+            AsyncUserToken token = m_userTokenPool.Pop(uid);
             token.Socket = e.AcceptSocket;
             token.ReceiveSaea.UserToken = token;
             token.SendSaea.UserToken = token;
@@ -167,6 +157,7 @@ namespace IOCPVCustom
                 ProcessReceive(token.ReceiveSaea);
             }
 
+            Interlocked.Increment(ref m_totalConnectedSockets);
             // Accept the next connection request
             StartAccept(e);
         }
@@ -188,7 +179,6 @@ namespace IOCPVCustom
                 default:
                     throw new ArgumentException("The last operation completed on the socket was not a receive or send");
             }
-
         }
 
         // This method is invoked when an asynchronous receive operation completes. 
@@ -267,7 +257,7 @@ namespace IOCPVCustom
                 bool willRaiseEvent = token.Socket.ReceiveAsync(token.ReceiveSaea);
                 if (!willRaiseEvent)
                 {
-                    ProcessReceive(e);
+                    ProcessReceive(token.ReceiveSaea);
                 }
             }
             else
@@ -288,12 +278,10 @@ namespace IOCPVCustom
             token.Socket.Close();
 
             // decrement the counter keeping track of the total number of clients connected to the server
-            Interlocked.Decrement(ref m_numConnectedSockets);
+            Interlocked.Decrement(ref m_totalConnectedSockets);
             _previouseSemaphore = m_maxNumberAcceptedClients.Release();
-            //Console.WriteLine("A client has been disconnected from the server. There are {0} clients connected to the server", m_numConnectedSockets);
-
-            // Free the SocketAsyncEventArg so they can be reused by another client
-            m_TokenPool.Push(token);
+            
+            m_userTokenPool.Push(token);
         }
 
         public void Start()
@@ -304,7 +292,7 @@ namespace IOCPVCustom
 
         public void PrintCurrentConnections()
         {
-            long currentConns = m_numConnectedSockets;
+            long currentConns = m_totalConnectedSockets;
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("Connections:{0},Semaphore:{1}", currentConns, _previouseSemaphore);
             Console.ResetColor();

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,7 +10,7 @@ namespace IOCPVCustom
     public class AsyncUserTokenPool
     {
         internal Stack<AsyncUserToken> Pool;
-        internal IDictionary<string, AsyncUserToken> Busypool;
+        internal ConcurrentDictionary<string, AsyncUserToken> Busypool;
         private NLog.ILogger _logger = NLog.LogManager.GetCurrentClassLogger();
         private string[] keys;
         internal Int32 Count
@@ -37,7 +38,7 @@ namespace IOCPVCustom
         {
             keys = new string[capacity];
             this.Pool = new Stack<AsyncUserToken>(capacity);
-            this.Busypool = new Dictionary<string, AsyncUserToken>(capacity);
+            this.Busypool = new ConcurrentDictionary<string, AsyncUserToken>();
         }
         internal AsyncUserToken Pop(string uid)
         {
@@ -50,7 +51,10 @@ namespace IOCPVCustom
             }
             asyncUserToken.UID = uid;
             asyncUserToken.Available = true;    //mark the state of pool is not the initial step
-            Busypool.Add(uid, asyncUserToken);
+            if (!Busypool.TryAdd(uid, asyncUserToken))
+            {
+                _logger.Error("Cannot add to Busy pool, client:{0}, already connected", uid);
+            }
             return asyncUserToken;
         }
         internal void Push(AsyncUserToken item)
@@ -62,7 +66,7 @@ namespace IOCPVCustom
                 if (Busypool.Keys.Count != 0)
                 {
                     if (Busypool.Keys.Contains(item.UID))
-                        Busypool.Remove(item.UID);
+                        Busypool.TryRemove(item.UID,out item);
                     else
                         _logger.Error("AsyncUserToken:{0} Not in Busy queue.",item.UID);
                 }
