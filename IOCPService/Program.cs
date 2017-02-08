@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using Ioc;
 using IocpServer;
 using IOCP;
+using IOCPVCustom;
 using Microsoft.Extensions.DependencyInjection;
 using NetFrame.Net;
 using NetFramework.AsyncSocketServer;
@@ -79,7 +80,9 @@ namespace IOCPService
             //IOCPV5
             //DependencyResolver.Services.AddSingleton<IServer>(new IServerSocket(MaxConnections,1024));
             //IOCP
-            DependencyResolver.Services.AddSingleton<IServer>(new Server(ServerIPAddress.ToString(), Port, MaxConnections, 1024));
+            //DependencyResolver.Services.AddSingleton<IServer>(new Server(ServerIPAddress.ToString(), Port, MaxConnections, 1024));
+            //IOCPCustom
+            DependencyResolver.Services.AddSingleton<IServer>(new ServerCustom(ServerIPAddress.ToString(), Port, MaxConnections, 1024));
 
         }
     }

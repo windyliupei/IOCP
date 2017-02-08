@@ -47,6 +47,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IOCPV5", "IOCPV5\IOCPV5.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IOCP", "IOCP\IOCP.csproj", "{42C8BC5A-BC45-40BB-B9F3-AC5392BCA3DB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IOCPVCustom", "IOCPVCustom\IOCPVCustom.csproj", "{C8420C88-B8E1-4F28-B44C-E0BB444A166C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -121,6 +123,10 @@ Global
 		{42C8BC5A-BC45-40BB-B9F3-AC5392BCA3DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{42C8BC5A-BC45-40BB-B9F3-AC5392BCA3DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{42C8BC5A-BC45-40BB-B9F3-AC5392BCA3DB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8420C88-B8E1-4F28-B44C-E0BB444A166C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8420C88-B8E1-4F28-B44C-E0BB444A166C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8420C88-B8E1-4F28-B44C-E0BB444A166C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8420C88-B8E1-4F28-B44C-E0BB444A166C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

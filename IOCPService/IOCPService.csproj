@@ -95,6 +95,10 @@
       <Project>{212a70c1-72af-4228-bf94-ececadca4647}</Project>
       <Name>IOCPV5</Name>
     </ProjectReference>
+    <ProjectReference Include="..\IOCPVCustom\IOCPVCustom.csproj">
+      <Project>{c8420c88-b8e1-4f28-b44c-e0bb444a166c}</Project>
+      <Name>IOCPVCustom</Name>
+    </ProjectReference>
     <ProjectReference Include="..\IOCP\IOCP.csproj">
       <Project>{42c8bc5a-bc45-40bb-b9f3-ac5392bca3db}</Project>
       <Name>IOCP</Name>
