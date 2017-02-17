@@ -16,12 +16,6 @@ namespace SocketAsyncServer
         public AcceptOpUserToken(Int32 identifier)
         {
             id = identifier;
-            
-
-            //if (Program.watchProgramFlow == true)   //for testing
-            //{
-            //    Program.testWriter.WriteLine("AcceptOpUserToken constructor, idOfThisObject " + id);
-            //}
         }
 
         public Int32 TokenId

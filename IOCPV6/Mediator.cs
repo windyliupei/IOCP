@@ -26,33 +26,17 @@ namespace SocketAsyncServer
         
         internal void HandleData(DataHolder incomingDataHolder)
         {   
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                receiveSendToken = (DataHoldingUserToken)this.saeaObject.UserToken;
-                Program.testWriter.WriteLine("Mediator HandleData() " + receiveSendToken.TokenId);
-            }
             theDataHolder = theIncomingDataPreparer.HandleReceivedData(incomingDataHolder, this.saeaObject);
         }
 
         internal void PrepareOutgoingData()
         {
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                receiveSendToken = (DataHoldingUserToken)this.saeaObject.UserToken;
-                Program.testWriter.WriteLine("Mediator PrepareOutgoingData() " + receiveSendToken.TokenId);
-            }
-
             theOutgoingDataPreparer.PrepareOutgoingData(saeaObject, theDataHolder);            
         }
 
         
         internal SocketAsyncEventArgs GiveBack()
         {
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                receiveSendToken = (DataHoldingUserToken)this.saeaObject.UserToken;
-                Program.testWriter.WriteLine("Mediator GiveBack() " + receiveSendToken.TokenId);
-            }
             return saeaObject;
         }
     }

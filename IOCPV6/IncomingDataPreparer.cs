@@ -34,10 +34,6 @@ namespace SocketAsyncServer
         internal DataHolder HandleReceivedData(DataHolder incomingDataHolder, SocketAsyncEventArgs theSaeaObject)
         {
             DataHoldingUserToken receiveToken = (DataHoldingUserToken)theSaeaObject.UserToken;
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                Program.testWriter.WriteLine("HandleReceivedData() " + receiveToken.TokenId);
-            }
             theDataHolder = incomingDataHolder;
             theDataHolder.sessionId = receiveToken.SessionId;
             theDataHolder.receivedTransMissionId = this.ReceivedTransMissionIdGetter();            

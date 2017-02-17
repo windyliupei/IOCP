@@ -15,22 +15,9 @@ namespace SocketAsyncServer
    
     class SocketListener
     {
-        //__variables for testing ____________________________________________
-
         //total clients connected to the server, excluding backlog
         internal Int32 numberOfAcceptedSockets;    
                 
-        //****for testing threads
-        Process theProcess; //for testing only
-        ProcessThreadCollection arrayOfLiveThreadsInThisProcess;   //for testing
-        HashSet<int> managedThreadIds = new HashSet<int>();  //for testing
-        HashSet<Thread> managedThreads = new HashSet<Thread>();  //for testing        
-        //object that will be used to lock the HashSet of thread references 
-        //that we use for testing.
-        private object lockerForThreadHashSet = new object();
-        //****end variables for displaying what's happening with threads        
-        //__END variables for testing ____________________________________________
-
         //__variables that might be used in a  real app__________________________________
         
         //Buffers for sockets are unmanaged by .NET. 
@@ -61,24 +48,16 @@ namespace SocketAsyncServer
         SocketAsyncEventArgsPool poolOfAcceptEventArgs;
         // pool of reusable SocketAsyncEventArgs objects for receive and send socket operations
         SocketAsyncEventArgsPool poolOfRecSendEventArgs;
+        //Logger
+        NLog.ILogger _logger = NLog.LogManager.GetCurrentClassLogger();
+
+
         //__END variables for real app____________________________________________
         
         //_______________________________________________________________________________
         // Constructor.
         public SocketListener(SocketListenerSettings theSocketListenerSettings)        
         {
-            
-            if (Program.watchProgramFlow == true)   //for testing
-            {                
-                Program.testWriter.WriteLine("SocketListener constructor");
-            }            
-            if (Program.watchThreads == true)   //for testing
-            {                
-                theProcess = Process.GetCurrentProcess(); //for testing only             
-                DealWithThreadsForTesting("constructor");
-            }
-            
-                        
             this.numberOfAcceptedSockets = 0; //for testing
             this.socketListenerSettings = theSocketListenerSettings;
             this.prefixHandler = new PrefixHandler();
@@ -111,23 +90,9 @@ namespace SocketAsyncServer
         
         internal void Init()
         {
-            if (Program.watchProgramFlow == true)   //for testing
-            {                
-                Program.testWriter.WriteLine("Init method");
-            }            
-            if (Program.watchThreads == true)   //for testing
-            {
-                DealWithThreadsForTesting("Init()");                
-            }            
-            
             // Allocate one large byte buffer block, which all I/O operations will 
             //use a piece of. This gaurds against memory fragmentation.
             this.theBufferManager.InitBuffer();
-
-            if (Program.watchProgramFlow == true)   //for testing
-            {                
-                Program.testWriter.WriteLine("Starting creation of accept SocketAsyncEventArgs pool:");
-            }
 
             // preallocate pool of SocketAsyncEventArgs objects for accept operations           
             for (Int32 i = 0; i < this.socketListenerSettings.MaxAcceptOps; i++)
@@ -145,11 +110,6 @@ namespace SocketAsyncServer
             //a parameter for buffer size in SocketAsyncEventArgs.Buffer.
             // So, create pool of SAEA objects for receive/send operations.
             SocketAsyncEventArgs eventArgObjectForPool;
-
-            if (Program.watchProgramFlow == true)   //for testing
-            {                
-                Program.testWriter.WriteLine("Starting creation of receive/send SocketAsyncEventArgs pool");
-            }
 
             Int32 tokenId;
 
@@ -225,15 +185,6 @@ namespace SocketAsyncServer
         // incoming connection requests.            
         internal void StartListen()
         {
-            if (Program.watchProgramFlow == true)   //for testing
-            {                   
-                Program.testWriter.WriteLine("StartListen method. Before Listen operation is started.");
-            }            
-            if (Program.watchThreads == true)   //for testing
-            {
-                DealWithThreadsForTesting("StartListen()");
-            }
-            
             // create the socket which listens for incoming connections
             listenSocket = new Socket(this.socketListenerSettings.LocalEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             
@@ -251,11 +202,6 @@ namespace SocketAsyncServer
             //max # for backlog can be limited by the operating system.
             listenSocket.Listen(this.socketListenerSettings.Backlog);
             
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                Program.testWriter.WriteLine("StartListen method Listen operation was just started.");
-            }
-            Console.WriteLine("\r\n\r\n*************************\r\n** Server is listening **\r\n*************************\r\n\r\nAfter you are finished, type 'Z' and press\r\nEnter key to terminate the server process.\r\nIf you terminate it by clicking X on the Console,\r\nthen the log will NOT write correctly.\r\n");
 
             // Calls the method which will post accepts on the listening socket.            
             // This call just occurs one time from this StartListen method. 
@@ -267,10 +213,6 @@ namespace SocketAsyncServer
         // Begins an operation to accept a connection request from the client         
         internal void StartAccept()        
         {
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                Program.testWriter.WriteLine("StartAccept method");
-            }
             SocketAsyncEventArgs acceptEventArg;
                         
             //Get a SocketAsyncEventArgs object to accept the connection.                        
@@ -294,19 +236,6 @@ namespace SocketAsyncServer
                 acceptEventArg = CreateNewSaeaForAccept(poolOfAcceptEventArgs);
             }
         
-            
-
-            if (Program.watchThreads == true)   //for testing
-            {
-                AcceptOpUserToken theAcceptOpToken = (AcceptOpUserToken)acceptEventArg.UserToken;
-                DealWithThreadsForTesting("StartAccept()", theAcceptOpToken);
-            }
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                AcceptOpUserToken theAcceptOpToken = (AcceptOpUserToken)acceptEventArg.UserToken;
-                Program.testWriter.WriteLine("still in StartAccept, id = " + theAcceptOpToken.TokenId);
-            }
-
             //Semaphore class is used to control access to a resource or pool of 
             //resources. Enter the semaphore by calling the WaitOne method, which is 
             //inherited from the WaitHandle class, and release the semaphore 
@@ -336,13 +265,6 @@ namespace SocketAsyncServer
             //parameter will NOT be raised when AcceptAsync returns false.
             if (!willRaiseEvent)
             {                
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    AcceptOpUserToken theAcceptOpToken = (AcceptOpUserToken)acceptEventArg.UserToken;
-                
-                    Program.testWriter.WriteLine("StartAccept in if (!willRaiseEvent), accept token id " + theAcceptOpToken.TokenId);
-                }
-                
                 //The code in this if (!willRaiseEvent) statement only runs 
                 //when the operation was completed synchronously. It is needed because 
                 //when Socket.AcceptAsync returns false, 
@@ -366,19 +288,6 @@ namespace SocketAsyncServer
             //the operation completes synchronously, which will probably happen when
             //there is some kind of socket error. It might be better to put the code
             //in the ProcessAccept method.
-            
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-
-                AcceptOpUserToken theAcceptOpToken = (AcceptOpUserToken)e.UserToken;
-                Program.testWriter.WriteLine("AcceptEventArg_Completed, id " + theAcceptOpToken.TokenId);
-            }
-            
-            if (Program.watchThreads == true)   //for testing
-            {
-                AcceptOpUserToken theAcceptOpToken = (AcceptOpUserToken)e.UserToken;
-                DealWithThreadsForTesting("AcceptEventArg_Completed()", theAcceptOpToken);
-            }
             
             ProcessAccept(e);
         }
@@ -417,14 +326,6 @@ namespace SocketAsyncServer
                 Interlocked.Increment(ref Program.maxSimultaneousClientsThatWereConnected);
             }
 
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                AcceptOpUserToken theAcceptOpToken = (AcceptOpUserToken)acceptEventArgs.UserToken;
-                Program.testWriter.WriteLine("ProcessAccept, accept id " + theAcceptOpToken.TokenId);
-            }
-            
-            
-
             //Now that the accept operation completed, we can start another
             //accept operation, which will do the same. Notice that we are NOT
             //passing the SAEA object here.
@@ -443,20 +344,7 @@ namespace SocketAsyncServer
             //a reference for that socket to the SocketAsyncEventArgs 
             //object which will do receive/send.
             receiveSendEventArgs.AcceptSocket = acceptEventArgs.AcceptSocket;
-                        
-            if ((Program.watchProgramFlow == true) || (Program.watchConnectAndDisconnect == true))
-            {
-                AcceptOpUserToken theAcceptOpToken = (AcceptOpUserToken)acceptEventArgs.UserToken;
-                Program.testWriter.WriteLine("Accept id " + theAcceptOpToken.TokenId + ". RecSend id " + ((DataHoldingUserToken)receiveSendEventArgs.UserToken).TokenId + ".  Remote endpoint = " + IPAddress.Parse(((IPEndPoint)receiveSendEventArgs.AcceptSocket.RemoteEndPoint).Address.ToString()) + ": " + ((IPEndPoint)receiveSendEventArgs.AcceptSocket.RemoteEndPoint).Port.ToString() + ". client(s) connected = " + this.numberOfAcceptedSockets);
-            }
-            if (Program.watchThreads == true)   //for testing
-            {
-                AcceptOpUserToken theAcceptOpToken = (AcceptOpUserToken)acceptEventArgs.UserToken;
-                theAcceptOpToken.socketHandleNumber = (Int32)acceptEventArgs.AcceptSocket.Handle;
-                DealWithThreadsForTesting("ProcessAccept()", theAcceptOpToken);
-                ((DataHoldingUserToken)receiveSendEventArgs.UserToken).socketHandleNumber = (Int32)receiveSendEventArgs.AcceptSocket.Handle;
-            }
-            
+                
             //We have handed off the connection info from the
             //accepting socket to the receiving socket. So, now we can
             //put the SocketAsyncEventArgs object that did the accept operation 
@@ -465,12 +353,6 @@ namespace SocketAsyncServer
             //ready for a new socket when it comes out of the pool.
             acceptEventArgs.AcceptSocket = null;
             this.poolOfAcceptEventArgs.Push(acceptEventArgs);            
-
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                AcceptOpUserToken theAcceptOpToken = (AcceptOpUserToken)acceptEventArgs.UserToken;
-                Program.testWriter.WriteLine("back to poolOfAcceptEventArgs goes accept id " + theAcceptOpToken.TokenId);
-            }
 
             StartReceive(receiveSendEventArgs);
         }
@@ -484,11 +366,6 @@ namespace SocketAsyncServer
         //This method is just here to help you visualize the program flow.
         private void LoopToStartAccept()
         {
-            if (Program.watchProgramFlow == true)   //for testing
-            {                                
-                Program.testWriter.WriteLine("LoopToStartAccept");
-            }
-                        
             StartAccept();
         }
                 
@@ -498,11 +375,7 @@ namespace SocketAsyncServer
         private void StartReceive(SocketAsyncEventArgs receiveSendEventArgs)
         {
             DataHoldingUserToken receiveSendToken = (DataHoldingUserToken)receiveSendEventArgs.UserToken;
-            if (Program.watchProgramFlow == true)   //for testing
-            {                
-                Program.testWriter.WriteLine("StartReceive(), receiveSendToken id " + receiveSendToken.TokenId);
-            }
-
+            
             //Set the buffer for the receive operation.
             receiveSendEventArgs.SetBuffer(receiveSendToken.bufferOffsetReceive, this.socketListenerSettings.BufferSize);                    
 
@@ -526,10 +399,6 @@ namespace SocketAsyncServer
             // It may be false in the case of a socket error.
             if (!willRaiseEvent)
             {
-                if (Program.watchProgramFlow == true)   //for testing
-                {                    
-                    Program.testWriter.WriteLine("StartReceive in if (!willRaiseEvent), receiveSendToken id " + receiveSendToken.TokenId);
-                }
                 //If the op completed synchronously, we need to call ProcessReceive 
                 //method directly. This will probably be used rarely, as you will 
                 //see in testing.
@@ -546,30 +415,15 @@ namespace SocketAsyncServer
             //Any code that you put in this method will NOT be called if
             //the operation completes synchronously, which will probably happen when
             //there is some kind of socket error.
-
-            DataHoldingUserToken receiveSendToken = (DataHoldingUserToken)e.UserToken;
-            if (Program.watchThreads == true)   //for testing
-            {
-                DealWithThreadsForTesting("IO_Completed()", receiveSendToken);                
-            }
             
             // determine which type of operation just completed and call the associated handler
             switch (e.LastOperation)
             {
                 case SocketAsyncOperation.Receive:
-                    if (Program.watchProgramFlow == true)   //for testing
-                    {
-                        Program.testWriter.WriteLine("IO_Completed method in Receive, receiveSendToken id " + receiveSendToken.TokenId);
-                    }                    
                     ProcessReceive(e);
                     break;
 
                 case SocketAsyncOperation.Send:
-                    if (Program.watchProgramFlow == true)   //for testing
-                    {
-                        Program.testWriter.WriteLine("IO_Completed method in Send, id " + receiveSendToken.TokenId);
-                   }
-
                     ProcessSend(e);
                     break;
 
@@ -598,11 +452,6 @@ namespace SocketAsyncServer
             // by reducing nesting some.
             if (receiveSendEventArgs.SocketError != SocketError.Success)
             {
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("ProcessReceive ERROR, receiveSendToken id " + receiveSendToken.TokenId);
-                }
-
                 receiveSendToken.Reset();
                 CloseClientSocket(receiveSendEventArgs);
 
@@ -614,12 +463,6 @@ namespace SocketAsyncServer
             // situation that shows when the client has finished sending data.
             if (receiveSendEventArgs.BytesTransferred == 0)
             {
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("ProcessReceive NO DATA, receiveSendToken id " + 
-    receiveSendToken.TokenId);
-                }
-
                 receiveSendToken.Reset();
                 CloseClientSocket(receiveSendEventArgs);
                 return;
@@ -628,27 +471,13 @@ namespace SocketAsyncServer
             //The BytesTransferred property tells us how many bytes 
             //we need to process.
             Int32 remainingBytesToProcess = receiveSendEventArgs.BytesTransferred;
-
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                Program.testWriter.WriteLine("ProcessReceive " + receiveSendToken.TokenId + ". remainingBytesToProcess = " + remainingBytesToProcess);
-            }
-            if (Program.watchThreads == true)   //for testing
-            {
-                DealWithThreadsForTesting("ProcessReceive()", receiveSendToken);
-            }            
-
+            
             //If we have not got all of the prefix already, 
             //then we need to work on it here.                                
             if (receiveSendToken.receivedPrefixBytesDoneCount < this.socketListenerSettings.ReceivePrefixLength)
             {
                 remainingBytesToProcess = prefixHandler.HandlePrefix(receiveSendEventArgs, receiveSendToken, remainingBytesToProcess);
 
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("ProcessReceive, after prefix work " + receiveSendToken.TokenId + ". remainingBytesToProcess = " + remainingBytesToProcess);
-                }
-                                
                 if (remainingBytesToProcess == 0)
                 {                    
                     // We need to do another receive op, since we do not have
@@ -723,16 +552,7 @@ namespace SocketAsyncServer
         private void StartSend(SocketAsyncEventArgs receiveSendEventArgs)
         {
             DataHoldingUserToken receiveSendToken = (DataHoldingUserToken)receiveSendEventArgs.UserToken;
-
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                Program.testWriter.WriteLine("StartSend, id " + receiveSendToken.TokenId);
-            }
-            if (Program.watchThreads == true)   //for testing
-            {
-                DealWithThreadsForTesting("StartSend()", receiveSendToken);
-            }
-
+            
             //Set the buffer. You can see on Microsoft's page at 
             //http://msdn.microsoft.com/en-us/library/system.net.sockets.socketasynceventargs.setbuffer.aspx
             //that there are two overloads. One of the overloads has 3 parameters.
@@ -774,11 +594,6 @@ namespace SocketAsyncServer
             
             if (!willRaiseEvent)
             {
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("StartSend in if (!willRaiseEvent), receiveSendToken id " + receiveSendToken.TokenId);
-                }
-                
                 ProcessSend(receiveSendEventArgs);
             }            
         }
@@ -792,22 +607,9 @@ namespace SocketAsyncServer
         private void ProcessSend(SocketAsyncEventArgs receiveSendEventArgs)
         {
             DataHoldingUserToken receiveSendToken = (DataHoldingUserToken)receiveSendEventArgs.UserToken;
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                Program.testWriter.WriteLine("ProcessSend, id " + receiveSendToken.TokenId);
-            }
-            if (Program.watchThreads == true)   //for testing
-            {
-                DealWithThreadsForTesting("ProcessSend()", receiveSendToken);
-            }                      
-
+              
             if (receiveSendEventArgs.SocketError == SocketError.Success)
             {
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("ProcessSend, if Success, id " + receiveSendToken.TokenId);
-                }
-
                 receiveSendToken.sendBytesRemainingCount = receiveSendToken.sendBytesRemainingCount - receiveSendEventArgs.BytesTransferred;                 
 
                 if (receiveSendToken.sendBytesRemainingCount == 0)
@@ -829,10 +631,6 @@ namespace SocketAsyncServer
             else
             {
                 //If we are in this else-statement, there was a socket error.
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("ProcessSend ERROR, id " + receiveSendToken.TokenId + "\r\n");
-                }
 
                 // We'll just close the socket if there was a
                 // socket error when receiving data from the client.
@@ -848,33 +646,16 @@ namespace SocketAsyncServer
         private void CloseClientSocket(SocketAsyncEventArgs e)
         {
             var receiveSendToken = (e.UserToken as DataHoldingUserToken);
-
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                Program.testWriter.WriteLine("CloseClientSocket, id " + receiveSendToken.TokenId);
-            }
-            if (Program.watchThreads == true)   //for testing
-            {
-                DealWithThreadsForTesting("CloseClientSocket()", receiveSendToken);
-            }
-
+            
             // do a shutdown before you close the socket
             try
             {
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("CloseClientSocket, Shutdown try, id " + receiveSendToken.TokenId + "\r\n");
-
-                }
                 e.AcceptSocket.Shutdown(SocketShutdown.Both);
             }
             // throws if socket was already closed
-            catch (Exception)
+            catch (Exception ex)
             {
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("CloseClientSocket, Shutdown catch, id " + receiveSendToken.TokenId + "\r\n");
-                }
+                _logger.Error(ex, "CloseClientSocket Error!");
             }
 
             //This method closes the socket and releases all resources, both
@@ -895,11 +676,6 @@ namespace SocketAsyncServer
             // decrement the counter keeping track of the total number of clients 
             //connected to the server, for testing
             Interlocked.Decrement(ref this.numberOfAcceptedSockets);
-
-            if (Program.watchConnectAndDisconnect == true)   //for testing
-            {
-                Program.testWriter.WriteLine(receiveSendToken.TokenId + " disconnected. " + this.numberOfAcceptedSockets + " client(s) connected.");
-            }
 
             //Release Semaphore so that its connection counter will be decremented.
             //This must be done AFTER putting the SocketAsyncEventArg back into the pool,
@@ -940,101 +716,6 @@ namespace SocketAsyncServer
                 eventArgs = poolOfRecSendEventArgs.Pop();
                 eventArgs.Dispose();
             }
-        }
-
-
-        //____________________________________________________________________________
-        //Display thread info.
-        //Note that there is NOT a 1:1 ratio between managed threads 
-        //and system (native) threads.
-        //
-        //Overloaded.
-        //Use this one after the DataHoldingUserToken is available.
-        //
-        private void DealWithThreadsForTesting(string methodName, DataHoldingUserToken receiveSendToken)
-        {            
-            StringBuilder sb = new StringBuilder();
-            sb.Append(" In " + methodName + ", receiveSendToken id " + receiveSendToken.TokenId + ". Thread id " + Thread.CurrentThread.ManagedThreadId + ". Socket handle " + receiveSendToken.socketHandleNumber + ".");
-            sb.Append(DealWithNewThreads());
-
-            Program.testWriter.WriteLine(sb.ToString());            
-        }
-
-        //Use this for testing, when there is NOT a UserToken yet. Use in SocketListener
-        //method or Init().
-        private void DealWithThreadsForTesting(string methodName)
-        {
-            StringBuilder sb = new StringBuilder();
-            sb.Append(" In " + methodName + ", no usertoken yet. Thread id " + Thread.CurrentThread.ManagedThreadId);
-            sb.Append(DealWithNewThreads());
-            Program.testWriter.WriteLine(sb.ToString());
-        }
-
-        //____________________________________________________________________________
-        //Display thread info.
-        //Overloaded.
-        //Use this one in method where AcceptOpUserToken is available.
-        //
-        private void DealWithThreadsForTesting(string methodName, AcceptOpUserToken theAcceptOpToken)
-        {
-            StringBuilder sb = new StringBuilder();
-            string hString = hString = ". Socket handle " + theAcceptOpToken.socketHandleNumber;
-            sb.Append(" In " + methodName + ", acceptToken id " + theAcceptOpToken.TokenId + ". Thread id " + Thread.CurrentThread.ManagedThreadId + hString + ".");
-            sb.Append(DealWithNewThreads());
-            Program.testWriter.WriteLine(sb.ToString());            
-        }
-
-        //____________________________________________________________________________
-        //Display thread info.
-        //called by DealWithThreadsForTesting
-        private string DealWithNewThreads()
-        {
-            
-            StringBuilder sb = new StringBuilder();
-            bool newThreadChecker = false;
-            lock (this.lockerForThreadHashSet)
-            {
-                if (managedThreadIds.Add(Thread.CurrentThread.ManagedThreadId) == true)
-                {
-                    managedThreads.Add(Thread.CurrentThread);
-                    newThreadChecker = true;
-                }
-            }
-            if (newThreadChecker == true)
-            {
-                
-                //Display system threads
-                //Note that there is NOT a 1:1 ratio between managed threads 
-                //and system (native) threads.
-                sb.Append("\r\n**** New managed thread.  Threading info:\r\nSystem thread numbers: ");
-                arrayOfLiveThreadsInThisProcess = theProcess.Threads; //for testing only
-                
-                foreach (ProcessThread theNativeThread in arrayOfLiveThreadsInThisProcess)
-                {
-                    sb.Append(theNativeThread.Id.ToString() + ", ");
-                }
-                //Display managed threads
-                //Note that there is NOT a 1:1 ratio between managed threads 
-                //and system (native) threads.
-                sb.Append("\r\nManaged threads that have been used: ");               
-                foreach (Int32 theManagedThreadId in managedThreadIds)
-                {
-                    sb.Append(theManagedThreadId.ToString() + ", ");                    
-                }
-
-                //Managed threads above were/are being used.
-                //Managed threads below are still being used now.
-                sb.Append("\r\nManagedthread.IsAlive true: ");                
-                foreach (Thread theManagedThread in managedThreads)
-                {
-                    if (theManagedThread.IsAlive == true)
-                    {
-                        sb.Append(theManagedThread.ManagedThreadId.ToString() + ", ");
-                    }
-                }                
-                sb.Append("\r\nEnd thread info.");
-            }
-            return sb.ToString();
         }
     }    
 }

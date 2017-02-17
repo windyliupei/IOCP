@@ -17,12 +17,6 @@ namespace SocketAsyncServer
         // "capacity" = Maximum number of SocketAsyncEventArgs objects
         internal SocketAsyncEventArgsPool(Int32 capacity)
         {
-            
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                Program.testWriter.WriteLine("SocketAsyncEventArgsPool constructor");
-            }
-            
             this.pool = new Stack<SocketAsyncEventArgs>(capacity);
         }
 

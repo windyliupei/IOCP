@@ -15,16 +15,6 @@ namespace SocketAsyncServer
             
             //Create the array where we'll store the complete message, 
             //if it has not been created on a previous receive op.
-            if (receiveSendToken.receivedMessageBytesDoneCount == 0)
-            {
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("MessageHandler, creating receive array " + receiveSendToken.TokenId);
-                }
-
-                                 
-                receiveSendToken.theDataHolder.dataMessageReceived = new Byte[receiveSendToken.lengthOfCurrentIncomingMessage];
-            }
 
             // Remember there is a receiveSendToken.receivedPrefixBytesDoneCount
             // variable, which allowed us to handle the prefix even when it
@@ -38,11 +28,6 @@ namespace SocketAsyncServer
                 // the end of the message. In other words,
                 // the total number of bytes we received for this message matched the 
                 // message length value that we got from the prefix.
-
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("MessageHandler, length is right for " + receiveSendToken.TokenId);
-                }
 
                 // Write/append the bytes received to the byte array in the 
                 // DataHolder object that we are using to store our data.
@@ -58,11 +43,6 @@ namespace SocketAsyncServer
                 // even though we have examined all the data that was received.
                 // Not a problem. In SocketListener.ProcessReceive we will just call
                 // StartReceive to do another receive op to receive more data.
-
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine(" MessageHandler, length is short for " + receiveSendToken.TokenId);
-                }
 
                 Buffer.BlockCopy(receiveSendEventArgs.Buffer, receiveSendToken.receiveMessageOffset, receiveSendToken.theDataHolder.dataMessageReceived, receiveSendToken.receivedMessageBytesDoneCount, remainingBytesToProcess);
 

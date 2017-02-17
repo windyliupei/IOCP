@@ -18,10 +18,6 @@ namespace SocketAsyncServer
         internal void PrepareOutgoingData(SocketAsyncEventArgs e, DataHolder handledDataHolder)
         {
             DataHoldingUserToken theUserToken = (DataHoldingUserToken)e.UserToken;
-            if (Program.watchProgramFlow == true)   //for testing
-            {
-                Program.testWriter.WriteLine("Mediator PrepareOutgoingData() " + theUserToken.TokenId);
-            }
             
             theDataHolder = handledDataHolder;
 

@@ -19,10 +19,6 @@ namespace SocketAsyncServer
             //already done it in a previous loop.
             if (receiveSendToken.receivedPrefixBytesDoneCount == 0)
             {
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("PrefixHandler, create prefix array " + receiveSendToken.TokenId);
-                }
                 receiveSendToken.byteArrayForPrefix = new Byte[receiveSendToken.receivePrefixLength];
             }
 
@@ -31,10 +27,6 @@ namespace SocketAsyncServer
             // length of the message that we are working on.
             if (remainingBytesToProcess >= receiveSendToken.receivePrefixLength - receiveSendToken.receivedPrefixBytesDoneCount)
             {
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("PrefixHandler, enough for prefix " + receiveSendToken.TokenId + ". remainingBytesToProcess = " + remainingBytesToProcess);
-                }
                 //Now copy that many bytes to byteArrayForPrefix.
                 //We can use the variable receiveMessageOffset as our main
                 //index to show which index to get data from in the TCP
@@ -72,10 +64,6 @@ namespace SocketAsyncServer
             //of this prefix in this receive operation, but not all.
             else
             {
-                if (Program.watchProgramFlow == true)   //for testing
-                {
-                    Program.testWriter.WriteLine("PrefixHandler, NOT all of prefix " + receiveSendToken.TokenId + ". remainingBytesToProcess = " + remainingBytesToProcess);
-                }
                 //Write the bytes to the array where we are putting the
                 //prefix data, to save for the next loop.
                 Buffer.BlockCopy(e.Buffer, receiveSendToken.receiveMessageOffset - receiveSendToken.receivePrefixLength + receiveSendToken.receivedPrefixBytesDoneCount, receiveSendToken.byteArrayForPrefix, receiveSendToken.receivedPrefixBytesDoneCount, remainingBytesToProcess);

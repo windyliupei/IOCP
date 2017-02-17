@@ -8,10 +8,6 @@ namespace SocketAsyncServer
 {
     class Program
     {
-        //If this is true, then info about which method the program is in
-        //will print to log.               
-        public static bool watchProgramFlow = true;
-        
         //If you make this true, then connect/disconnect info will print to log.
         public static readonly bool watchConnectAndDisconnect = true;
 
@@ -106,9 +102,6 @@ namespace SocketAsyncServer
             // Just used to calculate # of received transmissions at the end.
             startingTid = mainTransMissionId;
 
-            // Before the app starts, let's build strings for you to use the console.
-            BuildStringsForServerConsole();
-
             // Create List<T> to hold data, unless we are running a long test, which
             // would create too much data to store in a list.
             if (runLongTest == false)
@@ -127,8 +120,6 @@ namespace SocketAsyncServer
                 // Get endpoint for the listener.                
                 IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, port);
 
-                WriteInfoToConsole(localEndPoint);
-
                 //This object holds a lot of settings that we pass from Main method
                 //to the SocketListener. In a real app, you might want to read
                 //these settings from a database or windows registry settings that
@@ -139,7 +130,6 @@ namespace SocketAsyncServer
                 //instantiate the SocketListener.
                 SocketListener socketListener = new SocketListener(theSocketListenerSettings);
                 
-                ManageClosing(socketListener);                
             }                           
             catch (Exception ex)
             {
@@ -157,135 +147,6 @@ namespace SocketAsyncServer
                     Console.WriteLine("Could not close log properly.");
                 }
             }
-        }
-
-        //____________________________________________________________________________
-        static void BuildStringsForServerConsole()
-        {
-            StringBuilder sb = new StringBuilder();
-
-            // Make the string to write.
-            sb.Append("\r\n");
-            sb.Append("\r\n");
-            sb.Append("To take any of the following actions type the \r\ncorresponding letter below and press Enter.\r\n");
-            sb.Append(closeString);
-            sb.Append(")  to close the program\r\n");
-            sb.Append(checkString);
-            sb.Append(")  to check current status\r\n");
-            string tempString = sb.ToString();
-            sb.Length = 0;
-
-            // string when watchProgramFlow == true 
-            sb.Append(wpfNo);
-            sb.Append(")  to quit writing program flow. (ProgramFlow is being logged now.)\r\n");
-            wpfTrueString = tempString + sb.ToString();
-            sb.Length = 0;
-
-            // string when watchProgramFlow == false
-            sb.Append(wpf);
-            sb.Append(")  to start writing program flow. (ProgramFlow is NOT being logged.)\r\n");
-            wpfFalseString = tempString + sb.ToString();
-        }
-
-        //____________________________________________________________________________
-        public static void WriteInfoToConsole(IPEndPoint localEndPoint)
-        {
-            Console.WriteLine("The following options can be changed in Program.cs file.");            
-            Console.WriteLine("server buffer size = " + testBufferSize);
-            Console.WriteLine("max connections = " + maxNumberOfConnections);
-            Console.WriteLine("backlog variable value = " + backlog);
-            Console.WriteLine("watchProgramFlow = " + watchProgramFlow);
-            Console.WriteLine("watchConnectAndDisconnect = " + watchConnectAndDisconnect);
-            Console.WriteLine("watchThreads = " + watchThreads);
-            Console.WriteLine("msDelayAfterGettingMessage = " + msDelayAfterGettingMessage);
-            Console.WriteLine();            
-
-            Console.WriteLine();
-            Console.WriteLine("local endpoint = " + IPAddress.Parse(((IPEndPoint)localEndPoint).Address.ToString()) + ": " + ((IPEndPoint)localEndPoint).Port.ToString());
-            Console.WriteLine("server machine name = " + Environment.MachineName);
-
-            Console.WriteLine();            
-            Console.WriteLine("Client and server should be on separate machines for best results.");
-            Console.WriteLine("And your firewalls on both client and server will need to allow the connection.");
-            Console.WriteLine();
-        }
-
-        //____________________________________________________________________________
-        static void ManageClosing(SocketListener socketListener)
-        {
-            string stringToCompare = "";
-            string theEntry = "";
-
-            while (stringToCompare != closeString)
-            {                
-                if (watchProgramFlow == true)
-                {
-                    Console.WriteLine(wpfTrueString);                    
-                }
-                else
-                {
-                    Console.WriteLine(wpfFalseString);
-                }
-
-                theEntry = Console.ReadLine().ToUpper();
-
-                switch (theEntry)
-                {
-                    case checkString:
-                        Console.WriteLine("Number of current accepted connections = " + socketListener.numberOfAcceptedSockets);
-                        break;
-                    case wpf:
-                        if (Program.watchProgramFlow == false)
-                        {
-                            Program.watchProgramFlow = true;
-                            Console.WriteLine("Changed watchProgramFlow to true.");
-                            Program.testWriter.WriteLine("\r\nStart logging program flow.\r\n");
-                        }
-                        else
-                        {
-                            Console.WriteLine("Program flow was already being logged.");
-                        }
-
-                        break;
-                    case wpfNo:
-                        if (Program.watchProgramFlow == true)
-                        {
-                            Program.watchProgramFlow = false;
-                            Console.WriteLine("Changed watchProgramFlow to false.");
-                            Program.testWriter.WriteLine("\r\nStopped logging program flow.\r\n");
-                        }
-                        else
-                        {
-                            Console.WriteLine("Program flow was already NOT being logged.");
-                        }
-                        break;
-                    case closeString:
-                        stringToCompare = closeString;                        
-                        break;
-                    default:
-                        Console.WriteLine("Unrecognized entry");
-                        break;
-                }                
-            }
-            WriteData();
-        }
-
-        //____________________________________________________________________________
-        public static void WriteData()
-        {
-            if ((watchData == true) & (runLongTest == false))
-            {
-                DataHolder theDataHolder;
-                Program.testWriter.WriteLine("\r\n\r\nData from DataHolders in listOfDataHolders follows:\r\n");
-                int listCount = listOfDataHolders.Count;
-                for (int i = 0; i < listCount; i++)
-                {
-                    theDataHolder = listOfDataHolders[i];
-                    Program.testWriter.WriteLine(IPAddress.Parse(((IPEndPoint)theDataHolder.remoteEndpoint).Address.ToString()) + ": " + ((IPEndPoint)theDataHolder.remoteEndpoint).Port.ToString() + ", " + theDataHolder.receivedTransMissionId + ", " + Encoding.ASCII.GetString(theDataHolder.dataMessageReceived));
-                }
-            }
-            testWriter.WriteLine("\r\nHighest # of simultaneous connections was " + maxSimultaneousClientsThatWereConnected);
-            testWriter.WriteLine("# of transmissions received was " + (mainTransMissionId - startingTid));
         }
     }
 }
