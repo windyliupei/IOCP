@@ -53,6 +53,8 @@ Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "DotnettyDemo", "DotnettyDem
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "DotNetCoreStart", "DotNetCoreStart\DotNetCoreStart.xproj", "{F7773AC9-6F14-4E68-8BA9-35AF2B665777}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IOCPV6", "IOCPV6\IOCPV6.csproj", "{7BB67538-71CB-4009-9993-AB60CED5355E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -139,6 +141,10 @@ Global
 		{F7773AC9-6F14-4E68-8BA9-35AF2B665777}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F7773AC9-6F14-4E68-8BA9-35AF2B665777}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F7773AC9-6F14-4E68-8BA9-35AF2B665777}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7BB67538-71CB-4009-9993-AB60CED5355E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7BB67538-71CB-4009-9993-AB60CED5355E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7BB67538-71CB-4009-9993-AB60CED5355E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7BB67538-71CB-4009-9993-AB60CED5355E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
