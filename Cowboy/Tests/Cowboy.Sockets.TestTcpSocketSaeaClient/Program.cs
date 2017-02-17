@@ -25,7 +25,7 @@ namespace Cowboy.Sockets.TestTcpSocketSaeaClient
                 //config.FrameBuilder = new LengthPrefixedFrameBuilder();
                 //config.FrameBuilder = new LengthFieldBasedFrameBuilder();
 
-                IPEndPoint remoteEP = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 22222);
+                IPEndPoint remoteEP = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 2020);
                 _client = new TcpSocketSaeaClient(remoteEP, new SimpleMessageDispatcher(), config);
                 _client.Connect().Wait();
 
