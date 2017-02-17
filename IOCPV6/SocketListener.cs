@@ -50,8 +50,6 @@ namespace SocketAsyncServer
         SocketAsyncEventArgsPool poolOfRecSendEventArgs;
         //Logger
         NLog.ILogger _logger = NLog.LogManager.GetCurrentClassLogger();
-
-
         //__END variables for real app____________________________________________
         
         //_______________________________________________________________________________
@@ -81,13 +79,40 @@ namespace SocketAsyncServer
             StartListen();
         }
 
+        public SocketListener(string ipAddress, int port, int maxConnections, int receiveBufferSize)
+        {
+            var socketSetting = SocketListenerSettings.CreateSetting(ipAddress, port, maxConnections, receiveBufferSize);
+
+            this.numberOfAcceptedSockets = 0; //for testing
+            this.socketListenerSettings = socketSetting;
+            this.prefixHandler = new PrefixHandler();
+            this.messageHandler = new MessageHandler();
+
+            //Allocate memory for buffers. We are using a separate buffer space for
+            //receive and send, instead of sharing the buffer space, like the Microsoft
+            //example does.            
+            this.theBufferManager = new BufferManager(this.socketListenerSettings.BufferSize * this.socketListenerSettings.NumberOfSaeaForRecSend * this.socketListenerSettings.OpsToPreAllocate,
+            this.socketListenerSettings.BufferSize * this.socketListenerSettings.OpsToPreAllocate);
+
+            this.poolOfRecSendEventArgs = new SocketAsyncEventArgsPool(this.socketListenerSettings.NumberOfSaeaForRecSend);
+            this.poolOfAcceptEventArgs = new SocketAsyncEventArgsPool(this.socketListenerSettings.MaxAcceptOps);
+
+            // Create connections count enforcer
+            this.theMaxConnectionsEnforcer = new Semaphore(this.socketListenerSettings.MaxConnections, this.socketListenerSettings.MaxConnections);
+
+            //Microsoft's example called these from Main method, which you 
+            //can easily do if you wish.
+            Init();
+            StartListen();
+        }
+
         //____________________________________________________________________________
         // initializes the server by preallocating reusable buffers and 
         // context objects (SocketAsyncEventArgs objects).  
         //It is NOT mandatory that you preallocate them or reuse them. But, but it is 
         //done this way to illustrate how the API can 
         // easily be used to create reusable objects to increase server performance.
-        
+
         internal void Init()
         {
             // Allocate one large byte buffer block, which all I/O operations will 
